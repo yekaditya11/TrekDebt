@@ -48,8 +48,8 @@ Either:
 
 1. Go to [vercel.com](https://vercel.com) → **Add New Project**
 2. Import the repo
-3. Set **Root Directory** to `backend` (if monorepo)
-4. Framework: **FastAPI** (or Other — entrypoint is set in `pyproject.toml`)
+3. Set **Root Directory** to `backend` (important for monorepo)
+4. Framework: **FastAPI**
 5. Add Environment Variables:
 
 | Name | Value |

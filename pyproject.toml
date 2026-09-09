@@ -1,0 +1,21 @@
+[project]
+name = "trek-debt-api"
+version = "1.0.0"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+  "fastapi==0.115.6",
+  "uvicorn[standard]==0.34.0",
+  "sqlalchemy==2.0.36",
+  "psycopg[binary]==3.2.4",
+  "pydantic==2.10.4",
+  "pydantic-settings==2.7.0",
+  "python-dotenv==1.0.1",
+  "alembic==1.14.0",
+  "nanoid==2.0.0",
+  "email-validator==2.2.0",
+]
+
+# Used when Vercel Root Directory is the repo root (monorepo).
+# Prefer setting Root Directory = "backend" in the Vercel project instead.
+[tool.vercel]
+entrypoint = "backend.asgi:app"
