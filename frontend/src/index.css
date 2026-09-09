@@ -1,0 +1,81 @@
+@import url('https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap');
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-display: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Figtree", ui-sans-serif, system-ui, sans-serif;
+
+  --color-pine-950: #0f1f17;
+  --color-pine-900: #163528;
+  --color-pine-800: #1e4a36;
+  --color-pine-700: #276349;
+  --color-pine-600: #2f7a58;
+  --color-pine-500: #3d9470;
+  --color-pine-300: #6bb892;
+  --color-pine-100: #e4f2eb;
+  --color-pine-50: #f2f8f5;
+
+  --color-stone-ink: #1c1917;
+  --color-stone-muted: #57534e;
+  --color-stone-line: #e7e5e4;
+  --color-mist: #f6f4f1;
+  --color-panel: #ffffff;
+  --color-trail: #c4a574;
+  --color-danger: #b42318;
+  --color-danger-soft: #fef3f2;
+}
+
+html.dark {
+  --color-pine-950: #ecfdf5;
+  --color-pine-900: #d1fae5;
+  --color-pine-800: #a7f3d0;
+  --color-pine-700: #34d399;
+  --color-pine-600: #10b981;
+  --color-pine-500: #34d399;
+  --color-pine-300: #059669;
+  --color-pine-100: #1a3d2e;
+  --color-pine-50: #12261c;
+
+  --color-stone-ink: #f4f1ec;
+  --color-stone-muted: #a8a29e;
+  --color-stone-line: #2a3530;
+  --color-mist: #0b1210;
+  --color-panel: #141c18;
+  --color-trail: #d4b483;
+  --color-danger: #f97066;
+  --color-danger-soft: #3a1816;
+}
+
+@layer base {
+  html {
+    @apply antialiased;
+  }
+
+  body {
+    @apply m-0 min-h-dvh font-sans text-stone-ink bg-mist transition-colors duration-300;
+    background-image:
+      radial-gradient(ellipse 120% 80% at 0% -20%, rgba(61, 148, 112, 0.14), transparent 55%),
+      radial-gradient(ellipse 90% 60% at 100% 0%, rgba(196, 165, 116, 0.12), transparent 50%),
+      linear-gradient(180deg, color-mix(in oklab, var(--color-mist) 88%, white) 0%, var(--color-mist) 100%);
+    background-attachment: fixed;
+  }
+
+  html.dark body {
+    background-image:
+      radial-gradient(ellipse 120% 80% at 0% -10%, rgba(52, 211, 153, 0.12), transparent 55%),
+      radial-gradient(ellipse 90% 60% at 100% 0%, rgba(212, 180, 131, 0.08), transparent 50%),
+      linear-gradient(180deg, #0e1713 0%, #0b1210 100%);
+  }
+
+  #root {
+    @apply min-h-dvh;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display);
+  }
+}
