@@ -1,4 +1,4 @@
-"""Run the API with auto-reload: python main.py"""
+"""Local server with auto-reload: python run.py"""
 
 from pathlib import Path
 

@@ -28,7 +28,7 @@ FRONTEND_URL=http://localhost:5173
 Start (auto-reloads on `.py` changes):
 
 ```bash
-python main.py
+python run.py
 ```
 
 - API: http://localhost:8000
@@ -49,7 +49,7 @@ Either:
 1. Go to [vercel.com](https://vercel.com) → **Add New Project**
 2. Import the repo
 3. Set **Root Directory** to `backend` (if monorepo)
-4. Framework: **Other**
+4. Framework: **FastAPI** (or Other — entrypoint is set in `pyproject.toml`)
 5. Add Environment Variables:
 
 | Name | Value |
@@ -88,5 +88,5 @@ Copy this backend URL — you’ll set it as `VITE_API_URL` on the frontend proj
 ## Notes
 
 - Keep secrets in Vercel env vars / local `.env` only (never commit them).
-- On Vercel the API runs as a Python serverless function (`api/index.py`).
-- Locally keep using `python main.py` for auto-reload.
+- On Vercel the FastAPI app is served from `app/main.py` (see `pyproject.toml` entrypoint).
+- Locally use `python run.py` for auto-reload.
