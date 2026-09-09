@@ -13,14 +13,17 @@ from app.routers import trips
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    Base.metadata.create_all(bind=engine)
+    try:
+        Base.metadata.create_all(bind=engine)
+    except Exception as exc:  # noqa: BLE001 — keep function alive on cold start DB blips
+        print(f"[startup] database init skipped: {exc}")
     yield
 
 
 settings = get_settings()
 
 app = FastAPI(
-    title="TripExpCal API",
+    title="TrekDebt API",
     description="Shared trip expense tracker for groups of friends",
     version="1.0.0",
     lifespan=lifespan,
@@ -49,3 +52,8 @@ async def integrity_error_handler(_: Request, exc: IntegrityError) -> JSONRespon
 @app.get("/api/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/")
+def root() -> dict[str, str]:
+    return {"service": "trekdebt-api", "docs": "/docs", "health": "/api/health"}
