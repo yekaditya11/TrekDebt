@@ -68,6 +68,12 @@ export const api = {
     return request<Trip>(`/api/trips/${publicId}`)
   },
 
+  deleteTrip(publicId: string) {
+    return request<void>(`/api/trips/${publicId}`, {
+      method: 'DELETE',
+    })
+  },
+
   joinTrip(publicId: string, name: string) {
     return request<Member>(`/api/trips/${publicId}/join`, {
       method: 'POST',

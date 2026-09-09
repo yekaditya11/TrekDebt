@@ -4,7 +4,9 @@ import { api, ApiError } from '../api/client'
 import { AppHeader } from '../components/AppHeader'
 import { Button } from '../components/Button'
 import { TextInput } from '../components/FormFields'
+import { RecentTrips } from '../components/RecentTrips'
 import { ErrorBanner } from '../components/States'
+import { rememberTrip } from '../utils'
 
 export function HomePage() {
   const navigate = useNavigate()
@@ -22,8 +24,8 @@ export function HomePage() {
   function addMember() {
     const name = memberInput.trim()
     if (!name) return
-      if (members.some((m) => m.toLowerCase() === name.toLowerCase())) {
-      setError('That name already joined the circus')
+    if (members.some((m) => m.toLowerCase() === name.toLowerCase())) {
+      setError('Name already added')
       return
     }
     setMembers((prev) => [...prev, name])
@@ -41,6 +43,7 @@ export function HomePage() {
         name: tripName.trim(),
         members,
       })
+      rememberTrip(trip.public_id, trip.name)
       navigate(`/trip/${trip.public_id}`)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not create trip')
@@ -52,18 +55,18 @@ export function HomePage() {
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-xl flex-col px-4 pb-10 pt-8 sm:px-6">
       <AppHeader
-        title="Who paid for the Maggi?"
-        subtitle="One link. One chaotic friend group. Zero awkward 'UPI me later' debates at 2am."
+        title="Split trip expenses"
+        subtitle="Create a trip, share one link with friends, and split costs equally."
       />
 
       <form
         onSubmit={handleCreate}
-        className="rounded-3xl border border-stone-line/70 bg-panel/80 p-5 shadow-sm shadow-stone-900/5 backdrop-blur-sm sm:p-6"
+        className="rounded-3xl border border-stone-line/70 bg-panel/80 p-5 shadow-sm sm:p-6"
       >
         <TextInput
           id="trip-name"
-          label="Name this adventure"
-          placeholder="Operation: Broke in Manali"
+          label="Trip name"
+          placeholder="Goa trip"
           value={tripName}
           onChange={(e) => setTripName(e.target.value)}
           required
@@ -71,13 +74,13 @@ export function HomePage() {
 
         <div className="mt-4 space-y-2">
           <label className="text-sm font-medium text-stone-ink" htmlFor="member-name">
-            Recruit the squad
+            Friends
           </label>
           <div className="flex gap-2">
             <input
               id="member-name"
               className="w-full rounded-xl border border-stone-line bg-panel px-3.5 py-2.5 text-sm outline-none focus:border-pine-500 focus:ring-2 focus:ring-pine-100"
-              placeholder="That one friend who 'forgot wallet'"
+              placeholder="Name"
               value={memberInput}
               onChange={(e) => setMemberInput(e.target.value)}
               onKeyDown={(e) => {
@@ -88,7 +91,7 @@ export function HomePage() {
               }}
             />
             <Button type="button" variant="secondary" onClick={addMember}>
-              Yeet in
+              Add
             </Button>
           </div>
           {members.length > 0 ? (
@@ -111,9 +114,7 @@ export function HomePage() {
               ))}
             </ul>
           ) : (
-            <p className="text-xs text-stone-muted">
-              Solo trips are cute. Add at least one co-conspirator.
-            </p>
+            <p className="text-xs text-stone-muted">Add at least one friend.</p>
           )}
         </div>
 
@@ -124,9 +125,11 @@ export function HomePage() {
         ) : null}
 
         <Button type="submit" fullWidth className="mt-6 !py-3.5 text-base" disabled={!canSubmit}>
-          {submitting ? 'Brewing the chaos link…' : 'Launch trip & steal a share link'}
+          {submitting ? 'Creating…' : 'Create trip'}
         </Button>
       </form>
+
+      <RecentTrips />
     </div>
   )
 }

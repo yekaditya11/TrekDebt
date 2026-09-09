@@ -129,31 +129,49 @@ def list_expenses(
     return [_expense_response(expense) for expense in expenses]
 
 
-def add_expense(db: Session, public_id: str, payload: ExpenseCreate) -> ExpenseResponse:
+def add_expense(db: Session, public_id: str, payload: ExpenseCreate) -> list[ExpenseResponse]:
     trip = get_trip_by_public_id(db, public_id)
-    member = next((m for m in trip.members if m.id == payload.paid_by_id), None)
-    if not member:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="paid_by_id must belong to a member of this trip",
-        )
+    payer_ids = payload.paid_by_ids or []
+    trip_member_ids = {m.id for m in trip.members}
 
-    expense = Expense(
-        trip_id=trip.id,
-        name=payload.name,
-        amount=payload.amount,
-        paid_by_id=payload.paid_by_id,
-        category=payload.category.value,
-        expense_date=payload.expense_date,
-        notes=payload.notes,
-    )
-    db.add(expense)
+    for payer_id in payer_ids:
+        if payer_id not in trip_member_ids:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Each paid_by id must belong to a member of this trip",
+            )
+
+    count = len(payer_ids)
+    base = (payload.amount / count).quantize(Decimal("0.01"))
+    amounts = [base] * count
+    amounts[0] = (payload.amount - base * (count - 1)).quantize(Decimal("0.01"))
+
+    created_ids: list = []
+    for payer_id, amount in zip(payer_ids, amounts):
+        if amount <= 0:
+            continue
+        expense = Expense(
+            trip_id=trip.id,
+            name=payload.name,
+            amount=amount,
+            paid_by_id=payer_id,
+            category=payload.category.value,
+            expense_date=payload.expense_date,
+            notes=payload.notes,
+        )
+        db.add(expense)
+        db.flush()
+        created_ids.append(expense.id)
+
     db.commit()
-    db.refresh(expense)
-    expense = db.scalar(
-        select(Expense).options(joinedload(Expense.paid_by)).where(Expense.id == expense.id)
-    )
-    return _expense_response(expense)
+
+    expenses = db.scalars(
+        select(Expense)
+        .options(joinedload(Expense.paid_by))
+        .where(Expense.id.in_(created_ids))
+        .order_by(Expense.created_at.asc())
+    ).unique().all()
+    return [_expense_response(expense) for expense in expenses]
 
 
 def update_expense(
@@ -199,6 +217,16 @@ def delete_expense(db: Session, public_id: str, expense_id: UUID) -> None:
     if not expense:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Expense not found")
     db.delete(expense)
+    db.commit()
+
+
+def delete_trip(db: Session, public_id: str) -> None:
+    trip = get_trip_by_public_id(db, public_id)
+    # Delete expenses first (paid_by FK is RESTRICT)
+    for expense in list(trip.expenses):
+        db.delete(expense)
+    db.flush()
+    db.delete(trip)
     db.commit()
 
 

@@ -58,12 +58,12 @@ def list_expenses(
 
 @router.post(
     "/{public_id}/expenses",
-    response_model=ExpenseResponse,
+    response_model=list[ExpenseResponse],
     status_code=status.HTTP_201_CREATED,
 )
 def add_expense(
     public_id: str, payload: ExpenseCreate, db: Session = Depends(get_db)
-) -> ExpenseResponse:
+) -> list[ExpenseResponse]:
     return trip_service.add_expense(db, public_id, payload)
 
 
@@ -82,6 +82,11 @@ def delete_expense(
     public_id: str, expense_id: UUID, db: Session = Depends(get_db)
 ) -> None:
     trip_service.delete_expense(db, public_id, expense_id)
+
+
+@router.delete("/{public_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_trip(public_id: str, db: Session = Depends(get_db)) -> None:
+    trip_service.delete_trip(db, public_id)
 
 
 @router.get("/{public_id}/balances", response_model=BalanceSummary)

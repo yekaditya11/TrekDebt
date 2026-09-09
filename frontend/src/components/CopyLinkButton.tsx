@@ -21,7 +21,7 @@ export function CopyLinkButton({ url }: { url: string }) {
         if (ok) setCopied(true)
       }}
     >
-      {copied ? 'Copied. Go spam WhatsApp.' : 'Copy chaos link'}
+      {copied ? 'Copied' : 'Copy link'}
     </Button>
   )
 }

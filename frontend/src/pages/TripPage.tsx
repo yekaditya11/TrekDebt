@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { api, ApiError } from '../api/client'
 import { AppHeader } from '../components/AppHeader'
 import { Button } from '../components/Button'
@@ -7,17 +7,17 @@ import { CopyLinkButton } from '../components/CopyLinkButton'
 import { Dashboard } from '../components/Dashboard'
 import { ExpenseForm, type ExpenseFormValues } from '../components/ExpenseForm'
 import { ExpenseList } from '../components/ExpenseList'
-import { SelectInput, TextInput } from '../components/FormFields'
+import { TextInput } from '../components/FormFields'
 import { ConfirmDialog, Modal } from '../components/Modal'
 import { EmptyState, ErrorBanner, Spinner, SuccessToast } from '../components/States'
-import type { BalanceSummary, Expense, ExpenseCategory, Member, Trip } from '../types'
-import { CATEGORIES } from '../types'
-import { getStoredMemberId, storeMemberId } from '../utils'
+import type { BalanceSummary, Expense, Member, Trip } from '../types'
+import { getStoredMemberId, rememberTrip, storeMemberId, todayISO, forgetRecentTrip, clearStoredMemberId } from '../utils'
 
-type Tab = 'expenses' | 'dashboard'
+type Tab = 'expenses' | 'split'
 
 export function TripPage() {
   const { publicId = '' } = useParams()
+  const navigate = useNavigate()
   const [trip, setTrip] = useState<Trip | null>(null)
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [balances, setBalances] = useState<BalanceSummary | null>(null)
@@ -27,11 +27,10 @@ export function TripPage() {
   const [currentMemberId, setCurrentMemberId] = useState<string | null>(null)
   const [joinName, setJoinName] = useState('')
   const [joining, setJoining] = useState(false)
-  const [categoryFilter, setCategoryFilter] = useState('')
-  const [memberFilter, setMemberFilter] = useState('')
   const [showAdd, setShowAdd] = useState(false)
   const [editing, setEditing] = useState<Expense | null>(null)
   const [deleting, setDeleting] = useState<Expense | null>(null)
+  const [deletingTrip, setDeletingTrip] = useState(false)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
 
@@ -58,6 +57,7 @@ export function TripPage() {
       setTrip(tripData)
       setExpenses(expenseData)
       setBalances(balanceData)
+      rememberTrip(tripData.public_id, tripData.name)
 
       const stored = getStoredMemberId(publicId)
       if (stored && tripData.members.some((m) => m.id === stored)) {
@@ -76,17 +76,14 @@ export function TripPage() {
 
   useEffect(() => {
     if (!toast) return
-    const timer = window.setTimeout(() => setToast(null), 2200)
+    const timer = window.setTimeout(() => setToast(null), 2000)
     return () => window.clearTimeout(timer)
   }, [toast])
 
   async function refreshLists() {
     if (!publicId) return
     const [expenseData, balanceData, tripData] = await Promise.all([
-      api.listExpenses(publicId, {
-        category: categoryFilter || undefined,
-        member_id: memberFilter || undefined,
-      }),
+      api.listExpenses(publicId),
       api.getBalances(publicId),
       api.getTrip(publicId),
     ])
@@ -94,21 +91,6 @@ export function TripPage() {
     setBalances(balanceData)
     setTrip(tripData)
   }
-
-  useEffect(() => {
-    if (!publicId || !trip) return
-    void (async () => {
-      try {
-        const expenseData = await api.listExpenses(publicId, {
-          category: categoryFilter || undefined,
-          member_id: memberFilter || undefined,
-        })
-        setExpenses(expenseData)
-      } catch (err) {
-        setError(err instanceof ApiError ? err.message : 'Failed to filter expenses')
-      }
-    })()
-  }, [categoryFilter, memberFilter, publicId, trip?.public_id])
 
   async function handleJoin(event: React.FormEvent) {
     event.preventDefault()
@@ -120,9 +102,9 @@ export function TripPage() {
       storeMemberId(publicId, member.id)
       setCurrentMemberId(member.id)
       await loadAll()
-      setToast(`Boom. ${member.name} has entered the chat.`)
+      setToast(`Joined as ${member.name}`)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not join trip')
+      setError(err instanceof ApiError ? err.message : 'Could not join')
     } finally {
       setJoining(false)
     }
@@ -142,23 +124,31 @@ export function TripPage() {
       const payload = {
         name: values.name.trim(),
         amount: Number(values.amount),
-        paid_by_id: values.paid_by_id,
-        category: values.category as ExpenseCategory,
-        expense_date: values.expense_date,
-        notes: values.notes.trim() || null,
+        paid_by_ids: values.paid_by_ids,
+        paid_by_id: values.paid_by_ids[0],
+        category: 'Misc' as const,
+        expense_date: values.expense_date || todayISO(),
+        notes: null,
       }
       if (editing) {
-        await api.updateExpense(publicId, editing.id, payload)
-        setToast('Expense updated. History rewritten.')
+        await api.updateExpense(publicId, editing.id, {
+          name: payload.name,
+          amount: payload.amount,
+          paid_by_id: payload.paid_by_id,
+          category: payload.category,
+          expense_date: payload.expense_date,
+          notes: null,
+        })
+        setToast('Updated')
       } else {
         await api.addExpense(publicId, payload)
-        setToast('Logged. The group chat will never recover.')
+        setToast('Added')
       }
       setShowAdd(false)
       setEditing(null)
       await refreshLists()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not save expense')
+      setError(err instanceof ApiError ? err.message : 'Could not save')
     } finally {
       setSaving(false)
     }
@@ -170,10 +160,26 @@ export function TripPage() {
     try {
       await api.deleteExpense(publicId, deleting.id)
       setDeleting(null)
-      setToast('Poof. Expense yeeted into the void.')
+      setToast('Deleted')
       await refreshLists()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not delete expense')
+      setError(err instanceof ApiError ? err.message : 'Could not delete')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDeleteTrip() {
+    if (!publicId || !trip) return
+    setSaving(true)
+    try {
+      await api.deleteTrip(publicId)
+      forgetRecentTrip(publicId)
+      clearStoredMemberId(publicId)
+      navigate('/')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not delete trip')
+      setDeletingTrip(false)
     } finally {
       setSaving(false)
     }
@@ -182,7 +188,7 @@ export function TripPage() {
   if (loading) {
     return (
       <div className="mx-auto max-w-xl px-4 pt-10">
-        <Spinner label="Summoning the trip…" />
+        <Spinner label="Loading…" />
       </div>
     )
   }
@@ -200,17 +206,15 @@ export function TripPage() {
   if (!currentMember) {
     return (
       <div className="mx-auto flex min-h-dvh w-full max-w-xl flex-col px-4 pb-10 pt-8 sm:px-6">
-        <AppHeader
-          title={trip.name}
-          subtitle="Pick your government name before the receipts start flying."
-          backTo="/"
-        />
-        {error ? <div className="mb-4"><ErrorBanner message={error} /></div> : null}
+        <AppHeader title={trip.name} subtitle="Select your name to continue." backTo="/" />
+        {error ? (
+          <div className="mb-4">
+            <ErrorBanner message={error} />
+          </div>
+        ) : null}
 
         <section className="rounded-3xl border border-stone-line/70 bg-panel/80 p-5 shadow-sm">
-          <h2 className="font-display text-lg font-semibold text-pine-950">
-            State your identity, traveler
-          </h2>
+          <h2 className="font-display text-lg font-semibold text-pine-950">Who are you?</h2>
           <ul className="mt-3 space-y-2">
             {trip.members.map((member) => (
               <li key={member.id}>
@@ -228,13 +232,13 @@ export function TripPage() {
           <form onSubmit={handleJoin} className="mt-5 space-y-3 border-t border-stone-line pt-5">
             <TextInput
               id="join-name"
-              label="New here? Crash the party"
-              placeholder="Alias / real name / whatever"
+              label="Or add yourself"
+              placeholder="Your name"
               value={joinName}
               onChange={(e) => setJoinName(e.target.value)}
             />
             <Button type="submit" fullWidth disabled={joining || !joinName.trim()}>
-              {joining ? 'Sneaking in…' : 'I’m in. Let’s go broke together'}
+              {joining ? 'Joining…' : 'Join'}
             </Button>
           </form>
         </section>
@@ -244,15 +248,20 @@ export function TripPage() {
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-xl flex-col px-4 pb-28 pt-8 sm:px-6">
-      <AppHeader
-        title={trip.name}
-        subtitle={`Currently causing financial drama as ${currentMember.name}`}
-        backTo="/"
-      />
+      <AppHeader title={trip.name} subtitle={currentMember.name} backTo="/" />
 
       <div className="mb-5 space-y-2 rounded-2xl border border-stone-line/70 bg-panel/80 p-4">
         <p className="truncate text-xs text-stone-muted">{shareUrl}</p>
         <CopyLinkButton url={shareUrl} />
+        <Button
+          type="button"
+          variant="danger"
+          fullWidth
+          className="!py-2.5"
+          onClick={() => setDeletingTrip(true)}
+        >
+          Delete trip
+        </Button>
       </div>
 
       {error ? (
@@ -263,49 +272,17 @@ export function TripPage() {
 
       <div className="mb-4 grid grid-cols-2 gap-2 rounded-2xl bg-panel/60 p-1">
         <TabButton active={tab === 'expenses'} onClick={() => setTab('expenses')}>
-          The damage
+          Expenses
         </TabButton>
-        <TabButton active={tab === 'dashboard'} onClick={() => setTab('dashboard')}>
-          Who owes?
+        <TabButton active={tab === 'split'} onClick={() => setTab('split')}>
+          Balances
         </TabButton>
       </div>
 
       {tab === 'expenses' ? (
-        <section className="space-y-4">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <SelectInput
-              id="filter-category"
-              label="Vibe check (category)"
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-            >
-              <option value="">All the chaos</option>
-              {CATEGORIES.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </SelectInput>
-            <SelectInput
-              id="filter-member"
-              label="Blame filter"
-              value={memberFilter}
-              onChange={(e) => setMemberFilter(e.target.value)}
-            >
-              <option value="">Whole circus</option>
-              {trip.members.map((member) => (
-                <option key={member.id} value={member.id}>
-                  {member.name}
-                </option>
-              ))}
-            </SelectInput>
-          </div>
-
+        <section>
           {expenses.length === 0 ? (
-            <EmptyState
-              title="Nobody spent anything? Suspicious."
-              description="Hit the big green button and confess your first purchase."
-            />
+            <EmptyState title="No expenses yet" description="Tap Add expense below to start." />
           ) : (
             <ExpenseList
               expenses={expenses}
@@ -317,7 +294,7 @@ export function TripPage() {
       ) : balances ? (
         <Dashboard summary={balances} />
       ) : (
-        <Spinner label="Doing spicy maths…" />
+        <Spinner label="Loading…" />
       )}
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-stone-line/80 bg-mist/95 px-4 py-3 backdrop-blur dark:bg-mist/90">
@@ -328,14 +305,14 @@ export function TripPage() {
             className="!py-4 text-base shadow-md shadow-pine-900/25"
             onClick={() => setShowAdd(true)}
           >
-            + Drop a receipt
+            + Add expense
           </Button>
         </div>
       </div>
 
       {showAdd || editing ? (
         <Modal
-          title={editing ? 'Rewrite history' : 'Confess a purchase'}
+          title={editing ? 'Edit expense' : 'Add expense'}
           onClose={() => {
             setShowAdd(false)
             setEditing(null)
@@ -357,12 +334,23 @@ export function TripPage() {
 
       {deleting ? (
         <ConfirmDialog
-          title="Yeet this expense?"
-          message={`“${deleting.name}” will vanish forever. No take-backsies.`}
-          confirmLabel="Yeet it"
+          title="Delete expense?"
+          message={`Remove “${deleting.name}”?`}
+          confirmLabel="Delete"
           loading={saving}
           onConfirm={() => void handleDelete()}
           onCancel={() => setDeleting(null)}
+        />
+      ) : null}
+
+      {deletingTrip ? (
+        <ConfirmDialog
+          title="Delete trip?"
+          message={`Delete “${trip.name}” and all its expenses? This cannot be undone.`}
+          confirmLabel="Delete trip"
+          loading={saving}
+          onConfirm={() => void handleDeleteTrip()}
+          onCancel={() => setDeletingTrip(false)}
         />
       ) : null}
 

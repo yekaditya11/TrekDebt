@@ -26,12 +26,12 @@ export function AppHeader({
         <ThemeToggle />
       </div>
       <p className="font-display text-xs font-semibold uppercase tracking-[0.18em] text-trail">
-        TrekDebt™
+        TrekDebt
       </p>
       <h1 className="mt-1 font-display text-3xl font-bold tracking-tight text-pine-950 sm:text-4xl">
         {title}
       </h1>
-      {subtitle ? <p className="mt-2 max-w-xl text-sm text-stone-muted sm:text-base">{subtitle}</p> : null}
+      {subtitle ? <p className="mt-2 text-sm text-stone-muted">{subtitle}</p> : null}
     </header>
   )
 }

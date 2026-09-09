@@ -70,7 +70,8 @@ export interface TripCreatePayload {
 export interface ExpensePayload {
   name: string
   amount: number
-  paid_by_id: string
+  paid_by_id?: string
+  paid_by_ids?: string[]
   category: ExpenseCategory
   expense_date: string
   notes?: string | null

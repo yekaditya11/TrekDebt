@@ -3,7 +3,7 @@ from decimal import Decimal
 from enum import Enum
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class ExpenseCategory(str, Enum):
@@ -108,7 +108,8 @@ class TripSummary(BaseModel):
 class ExpenseCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
     amount: Decimal = Field(..., gt=0, max_digits=12, decimal_places=2)
-    paid_by_id: UUID
+    paid_by_id: UUID | None = None
+    paid_by_ids: list[UUID] | None = None
     category: ExpenseCategory = ExpenseCategory.MISC
     expense_date: date
     notes: str | None = Field(default=None, max_length=1000)
@@ -128,6 +129,24 @@ class ExpenseCreate(BaseModel):
             return None
         cleaned = value.strip()
         return cleaned or None
+
+    @model_validator(mode="after")
+    def resolve_payers(self) -> "ExpenseCreate":
+        ids: list[UUID] = list(self.paid_by_ids or [])
+        if self.paid_by_id and self.paid_by_id not in ids:
+            ids.insert(0, self.paid_by_id)
+        # de-dupe keep order
+        seen: set[UUID] = set()
+        unique: list[UUID] = []
+        for item in ids:
+            if item not in seen:
+                seen.add(item)
+                unique.append(item)
+        if not unique:
+            raise ValueError("Pick at least one person who paid")
+        self.paid_by_ids = unique
+        self.paid_by_id = unique[0]
+        return self
 
 
 class ExpenseUpdate(BaseModel):
