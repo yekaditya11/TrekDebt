@@ -24,21 +24,20 @@ export function CategoryBreakdown({ expenses, currency }: CategoryBreakdownProps
   const max = Math.max(...rows.map((r) => r.total), 1)
 
   return (
-    <section className="mb-5 rounded-2xl border border-stone-line/70 bg-panel/80 p-4">
-      <h2 className="text-sm font-semibold text-pine-950">By category</h2>
-      <ul className="mt-3 space-y-3">
+    <section className="mb-6">
+      <ul className="space-y-3">
         {rows.map((row) => (
           <li key={row.category}>
-            <div className="mb-1 flex items-center justify-between gap-2 text-sm">
-              <span className="font-medium text-pine-900">{row.category}</span>
-              <span className="text-stone-muted">
+            <div className="mb-1.5 flex items-baseline justify-between gap-2">
+              <span className="text-sm font-medium text-pine-900">{row.category}</span>
+              <span className="font-display text-sm font-semibold tabular-nums text-pine-800">
                 {formatCurrency(row.total, currency)}
               </span>
             </div>
-            <div className="h-2 overflow-hidden rounded-full bg-pine-50">
+            <div className="h-1.5 overflow-hidden rounded-full bg-pine-50">
               <div
                 className="h-full rounded-full bg-pine-600"
-                style={{ width: `${Math.max(6, (row.total / max) * 100)}%` }}
+                style={{ width: `${Math.max(8, (row.total / max) * 100)}%` }}
               />
             </div>
           </li>

@@ -1,6 +1,5 @@
 import type { Expense } from '../types'
 import { formatCurrency } from '../utils'
-import { Button } from './Button'
 
 interface ExpenseListProps {
   expenses: Expense[]
@@ -23,52 +22,42 @@ export function ExpenseList({
         const sharedByEveryone =
           expense.split_member_ids.length === 0 ||
           expense.split_member_ids.length >= memberCount
-        const splitLabel = sharedByEveryone
-          ? 'everyone'
-          : expense.split_member_names.join(', ')
+        const meta = sharedByEveryone
+          ? expense.paid_by_name
+          : `${expense.paid_by_name} · ${expense.split_member_names.join(', ')}`
 
         return (
           <li
             key={expense.id}
-            className="rounded-2xl border border-stone-line/80 bg-panel/90 px-4 py-3"
+            className="flex items-center gap-2 rounded-3xl border border-stone-line/70 bg-panel px-3 py-3"
           >
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="truncate font-semibold text-pine-950">{expense.name}</p>
-                  <span className="shrink-0 rounded-md bg-pine-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-pine-800">
-                    {expense.category}
-                  </span>
-                </div>
-                <p className="mt-0.5 text-xs text-stone-muted">
-                  Paid by {expense.paid_by_name} · Shared by {splitLabel}
+            <button
+              type="button"
+              onClick={() => onEdit(expense)}
+              className="flex min-w-0 flex-1 items-center gap-3 px-1 text-left"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-display text-base font-bold text-pine-950">
+                  {expense.name}
                 </p>
-                {expense.notes ? (
-                  <p className="mt-1 truncate text-xs text-stone-muted/90">{expense.notes}</p>
-                ) : null}
+                <p className="mt-0.5 truncate text-sm text-stone-muted">
+                  {expense.category}
+                  <span className="mx-1.5 text-stone-line">·</span>
+                  {meta}
+                </p>
               </div>
-              <p className="shrink-0 font-display text-lg font-bold text-pine-800">
+              <p className="shrink-0 font-display text-lg font-bold tabular-nums text-pine-700">
                 {formatCurrency(expense.amount, currency)}
               </p>
-            </div>
-            <div className="mt-2 flex gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                className="!px-3 !py-1.5 text-xs"
-                onClick={() => onEdit(expense)}
-              >
-                Edit
-              </Button>
-              <Button
-                type="button"
-                variant="danger"
-                className="!px-3 !py-1.5 text-xs"
-                onClick={() => onDelete(expense)}
-              >
-                Delete
-              </Button>
-            </div>
+            </button>
+            <button
+              type="button"
+              aria-label={`Delete ${expense.name}`}
+              className="shrink-0 rounded-xl px-2.5 py-2 text-sm text-danger/80 hover:bg-danger-soft"
+              onClick={() => onDelete(expense)}
+            >
+              ✕
+            </button>
           </li>
         )
       })}

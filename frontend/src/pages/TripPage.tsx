@@ -4,7 +4,6 @@ import { api, ApiError } from '../api/client'
 import { AppHeader } from '../components/AppHeader'
 import { Button } from '../components/Button'
 import { CategoryBreakdown } from '../components/CategoryBreakdown'
-import { CopyLinkButton } from '../components/CopyLinkButton'
 import { ExpenseForm, type ExpenseFormValues } from '../components/ExpenseForm'
 import { ExpenseList } from '../components/ExpenseList'
 import { DropdownSelect, TextInput } from '../components/FormFields'
@@ -24,6 +23,7 @@ import {
 } from '../types'
 import {
   clearStoredMemberId,
+  copyText,
   forgetRecentTrip,
   getStoredMemberId,
   rememberTrip,
@@ -56,6 +56,7 @@ export function TripPage() {
   const [newMemberName, setNewMemberName] = useState('')
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  const [tab, setTab] = useState<'expenses' | 'settle'>('expenses')
 
   const shareUrl = useMemo(() => {
     if (!trip) return ''
@@ -334,48 +335,73 @@ export function TripPage() {
     <div className="mx-auto flex min-h-dvh w-full max-w-xl flex-col px-4 pb-28 pt-8 sm:px-6">
       <AppHeader title={trip.name} subtitle={currentMember.name} backTo="/" />
 
-      <div className="mb-5 space-y-2 rounded-2xl border border-stone-line/70 bg-panel/80 p-4">
-        <p className="truncate text-xs text-stone-muted">{shareUrl}</p>
-        <CopyLinkButton url={shareUrl} />
-        <div className="grid grid-cols-2 gap-2">
-          <Button
-            type="button"
-            variant="secondary"
-            fullWidth
-            className="!py-2.5"
-            onClick={() => {
-              setTripNameDraft(trip.name)
-              setCurrencyDraft((trip.currency as TripCurrency) || 'INR')
-              setNewMemberName('')
-              setShowEditTrip(true)
-            }}
-          >
-            Edit trip
-          </Button>
-          <Button
-            type="button"
-            variant="danger"
-            fullWidth
-            className="!py-2.5"
-            onClick={() => setDeletingTrip(true)}
-          >
-            Delete trip
-          </Button>
-        </div>
+      <div className="mb-5 flex items-center gap-2">
+        <Button
+          type="button"
+          variant="secondary"
+          className="!px-3.5 !py-2.5 text-sm"
+          onClick={async () => {
+            const ok = await copyText(shareUrl)
+            if (ok) setToast('Link copied')
+          }}
+        >
+          Share
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          className="!px-3.5 !py-2.5 text-sm"
+          onClick={() => {
+            setTripNameDraft(trip.name)
+            setCurrencyDraft((trip.currency as TripCurrency) || 'INR')
+            setNewMemberName('')
+            setShowEditTrip(true)
+          }}
+        >
+          Edit
+        </Button>
         <Button
           type="button"
           variant="ghost"
-          fullWidth
-          className="!py-2 text-xs"
-          onClick={() => void loadAll({ quiet: true }).then(() => setToast('Refreshed'))}
+          className="!px-3 !py-2.5 text-sm"
+          onClick={() => void loadAll({ quiet: true }).then(() => setToast('Updated'))}
         >
           Refresh
         </Button>
+        <Button
+          type="button"
+          variant="danger"
+          className="ml-auto !px-3.5 !py-2.5 text-sm"
+          onClick={() => setDeletingTrip(true)}
+        >
+          Delete
+        </Button>
       </div>
 
-      <TripSummaryCard summary={summary} currency={currency} />
-      <SettlementsCard settlements={summary?.settlements ?? []} currency={currency} />
-      <CategoryBreakdown expenses={allExpenses} currency={currency} />
+      <div className="mb-6 grid grid-cols-2 gap-1 rounded-full border border-stone-line/70 bg-panel p-1">
+        <button
+          type="button"
+          onClick={() => setTab('expenses')}
+          className={`rounded-full px-3 py-2 text-sm font-semibold transition ${
+            tab === 'expenses'
+              ? 'bg-pine-700 text-white dark:text-pine-950'
+              : 'text-stone-muted hover:text-pine-900'
+          }`}
+        >
+          Expenses
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('settle')}
+          className={`rounded-full px-3 py-2 text-sm font-semibold transition ${
+            tab === 'settle'
+              ? 'bg-pine-700 text-white dark:text-pine-950'
+              : 'text-stone-muted hover:text-pine-900'
+          }`}
+        >
+          Settle
+        </button>
+      </div>
 
       {error ? (
         <div className="mb-4">
@@ -383,59 +409,68 @@ export function TripPage() {
         </div>
       ) : null}
 
-      <div className="mb-3 flex flex-wrap gap-2">
-        {(['All', ...CATEGORIES] as const).map((cat) => {
-          const selected = categoryFilter === cat
-          return (
-            <button
-              key={cat}
-              type="button"
-              onClick={() => setCategoryFilter(cat)}
-              className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
-                selected
-                  ? 'border-pine-600 bg-pine-700 text-white dark:text-pine-950'
-                  : 'border-stone-line bg-panel text-pine-900 hover:bg-pine-50'
-              }`}
-            >
-              {cat}
-            </button>
-          )
-        })}
-      </div>
+      {tab === 'expenses' ? (
+        <>
+          <TripSummaryCard summary={summary} currency={currency} />
+          <CategoryBreakdown expenses={allExpenses} currency={currency} />
 
-      <section>
-        {expenses.length === 0 ? (
-          <EmptyState
-            title={categoryFilter === 'All' ? 'No expenses yet' : `No ${categoryFilter} expenses`}
-            description={
-              categoryFilter === 'All'
-                ? 'Tap Add expense below to start.'
-                : 'Try another category or add a new expense.'
-            }
-          />
-        ) : (
-          <ExpenseList
-            expenses={expenses}
-            memberCount={trip.members.length}
-            currency={currency}
-            onEdit={(expense) => setEditing(expense)}
-            onDelete={(expense) => setDeleting(expense)}
-          />
-        )}
-      </section>
+          <div className="-mx-1 mb-4 flex gap-1.5 overflow-x-auto px-1 py-1.5">
+            {(['All', ...CATEGORIES] as const).map((cat) => {
+              const selected = categoryFilter === cat
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setCategoryFilter(cat)}
+                  className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                    selected
+                      ? 'border-pine-600 bg-pine-700 text-white dark:text-pine-950'
+                      : 'border-stone-line bg-panel text-stone-muted hover:text-pine-900'
+                  }`}
+                >
+                  {cat}
+                </button>
+              )
+            })}
+          </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-stone-line/80 bg-mist/95 px-4 py-3 backdrop-blur dark:bg-mist/90">
-        <div className="mx-auto max-w-xl">
-          <Button
-            type="button"
-            fullWidth
-            className="!py-4 text-base shadow-md shadow-pine-900/25"
-            onClick={() => setShowAdd(true)}
-          >
-            + Add expense
-          </Button>
+          <section>
+            {expenses.length === 0 ? (
+              <EmptyState
+                title={categoryFilter === 'All' ? 'No expenses' : `No ${categoryFilter}`}
+                description={
+                  categoryFilter === 'All' ? 'Add one below.' : 'Try another filter.'
+                }
+              />
+            ) : (
+              <ExpenseList
+                expenses={expenses}
+                memberCount={trip.members.length}
+                currency={currency}
+                onEdit={(expense) => setEditing(expense)}
+                onDelete={(expense) => setDeleting(expense)}
+              />
+            )}
+          </section>
+
+          <div className="fixed inset-x-0 bottom-0 z-30 border-t border-stone-line/80 bg-mist/95 px-4 py-3 backdrop-blur dark:bg-mist/90">
+            <div className="mx-auto max-w-xl">
+              <Button
+                type="button"
+                fullWidth
+                className="!py-4 text-base shadow-md shadow-pine-900/25"
+                onClick={() => setShowAdd(true)}
+              >
+                + Add expense
+              </Button>
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="space-y-4 pb-8">
+          <SettlementsCard settlements={summary?.settlements ?? []} currency={currency} />
         </div>
-      </div>
+      )}
 
       {showAdd || editing ? (
         <Modal
