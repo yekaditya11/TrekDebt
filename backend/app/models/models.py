@@ -24,6 +24,7 @@ class Trip(Base):
     id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
     public_id: Mapped[str] = mapped_column(String(12), unique=True, index=True, nullable=False)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, default="INR", server_default="INR")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -80,3 +81,24 @@ class Expense(Base):
 
     trip: Mapped["Trip"] = relationship("Trip", back_populates="expenses")
     paid_by: Mapped["Member"] = relationship("Member", back_populates="expenses_paid")
+    splits: Mapped[list["ExpenseSplit"]] = relationship(
+        "ExpenseSplit", back_populates="expense", cascade="all, delete-orphan"
+    )
+
+
+class ExpenseSplit(Base):
+    """Members who share this expense (equal split among them)."""
+
+    __tablename__ = "expense_splits"
+    __table_args__ = (UniqueConstraint("expense_id", "member_id", name="uq_expense_split"),)
+
+    id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    expense_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("expenses.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    member_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("members.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+
+    expense: Mapped["Expense"] = relationship("Expense", back_populates="splits")
+    member: Mapped["Member"] = relationship("Member")

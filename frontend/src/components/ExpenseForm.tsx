@@ -1,13 +1,16 @@
 import { useState } from 'react'
-import type { Expense, Member } from '../types'
+import { CATEGORIES, type Expense, type ExpenseCategory, type Member } from '../types'
 import { Button } from './Button'
-import { TextInput } from './FormFields'
+import { DropdownSelect, TextArea, TextInput } from './FormFields'
 import { todayISO } from '../utils'
 
 export interface ExpenseFormValues {
   name: string
   amount: string
   paid_by_ids: string[]
+  split_member_ids: string[]
+  category: ExpenseCategory
+  notes: string
   expense_date: string
 }
 
@@ -20,7 +23,18 @@ interface ExpenseFormProps {
   onCancel?: () => void
 }
 
-function toValues(expense?: Expense | null, defaultPaidById?: string): ExpenseFormValues {
+function asCategory(value: string | undefined): ExpenseCategory {
+  if (value && (CATEGORIES as readonly string[]).includes(value)) {
+    return value as ExpenseCategory
+  }
+  return 'Misc'
+}
+
+function toValues(
+  expense?: Expense | null,
+  defaultPaidById?: string,
+  members: Member[] = [],
+): ExpenseFormValues {
   return {
     name: expense?.name ?? '',
     amount: expense ? String(expense.amount) : '',
@@ -29,6 +43,11 @@ function toValues(expense?: Expense | null, defaultPaidById?: string): ExpenseFo
       : defaultPaidById
         ? [defaultPaidById]
         : [],
+    split_member_ids: expense?.split_member_ids?.length
+      ? [...expense.split_member_ids]
+      : members.map((m) => m.id),
+    category: asCategory(expense?.category),
+    notes: expense?.notes ?? '',
     expense_date: expense?.expense_date ?? todayISO(),
   }
 }
@@ -42,7 +61,7 @@ export function ExpenseForm({
   onCancel,
 }: ExpenseFormProps) {
   const [values, setValues] = useState<ExpenseFormValues>(() =>
-    toValues(initial, defaultPaidById),
+    toValues(initial, defaultPaidById, members),
   )
   const [error, setError] = useState<string | null>(null)
   const editing = Boolean(initial)
@@ -56,6 +75,18 @@ export function ExpenseForm({
         paid_by_ids: exists
           ? v.paid_by_ids.filter((id) => id !== memberId)
           : [...v.paid_by_ids, memberId],
+      }
+    })
+  }
+
+  function toggleSplit(memberId: string) {
+    setValues((v) => {
+      const exists = v.split_member_ids.includes(memberId)
+      return {
+        ...v,
+        split_member_ids: exists
+          ? v.split_member_ids.filter((id) => id !== memberId)
+          : [...v.split_member_ids, memberId],
       }
     })
   }
@@ -76,6 +107,10 @@ export function ExpenseForm({
       setError('Select who paid')
       return
     }
+    if (values.split_member_ids.length === 0) {
+      setError('Select who shares this expense')
+      return
+    }
     await onSubmit(values)
   }
 
@@ -83,7 +118,7 @@ export function ExpenseForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       <TextInput
         id="expense-amount"
-        label="Amount (₹)"
+        label="Amount"
         type="number"
         inputMode="decimal"
         min="0.01"
@@ -94,14 +129,33 @@ export function ExpenseForm({
         required
         autoFocus={!editing}
       />
-        <TextInput
-          id="expense-name"
-          label="Description"
-          placeholder="Dinner, taxi, hotel"
-          value={values.name}
-          onChange={(e) => setValues((v) => ({ ...v, name: e.target.value }))}
-          required
-        />
+      <TextInput
+        id="expense-name"
+        label="Description"
+        placeholder="Dinner, taxi, hotel"
+        value={values.name}
+        onChange={(e) => setValues((v) => ({ ...v, name: e.target.value }))}
+        required
+      />
+
+      <DropdownSelect
+        id="expense-category"
+        label="Category"
+        value={values.category}
+        options={CATEGORIES.map((cat) => ({ value: cat, label: cat }))}
+        onChange={(next) =>
+          setValues((v) => ({ ...v, category: next as ExpenseCategory }))
+        }
+      />
+
+      <TextArea
+        id="expense-notes"
+        label="Notes (optional)"
+        placeholder="Any extra detail"
+        rows={2}
+        value={values.notes}
+        onChange={(e) => setValues((v) => ({ ...v, notes: e.target.value }))}
+      />
 
       <fieldset>
         <legend className="mb-2 text-sm font-medium text-stone-ink">Who paid?</legend>
@@ -125,7 +179,33 @@ export function ExpenseForm({
           })}
         </div>
         <p className="mt-2 text-xs text-stone-muted">
-          Cost is split equally among all trip members.
+          Select one or more people who paid this amount.
+        </p>
+      </fieldset>
+
+      <fieldset>
+        <legend className="mb-2 text-sm font-medium text-stone-ink">Shared by</legend>
+        <div className="flex flex-wrap gap-2">
+          {members.map((member) => {
+            const selected = values.split_member_ids.includes(member.id)
+            return (
+              <button
+                key={member.id}
+                type="button"
+                onClick={() => toggleSplit(member.id)}
+                className={`rounded-full border px-3 py-1.5 text-sm font-semibold transition ${
+                  selected
+                    ? 'border-pine-600 bg-pine-700 text-white dark:text-pine-950'
+                    : 'border-stone-line bg-panel text-pine-900 hover:bg-pine-50'
+                }`}
+              >
+                {member.name}
+              </button>
+            )
+          })}
+        </div>
+        <p className="mt-2 text-xs text-stone-muted">
+          Only selected people share this expense equally.
         </p>
       </fieldset>
 

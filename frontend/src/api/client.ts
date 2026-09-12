@@ -68,6 +68,13 @@ export const api = {
     return request<Trip>(`/api/trips/${publicId}`)
   },
 
+  updateTrip(publicId: string, payload: { name?: string; currency?: string }) {
+    return request<Trip>(`/api/trips/${publicId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    })
+  },
+
   deleteTrip(publicId: string) {
     return request<void>(`/api/trips/${publicId}`, {
       method: 'DELETE',
@@ -97,7 +104,7 @@ export const api = {
   },
 
   addExpense(publicId: string, payload: ExpensePayload) {
-    return request<Expense>(`/api/trips/${publicId}/expenses`, {
+    return request<Expense[]>(`/api/trips/${publicId}/expenses`, {
       method: 'POST',
       body: JSON.stringify(payload),
     })

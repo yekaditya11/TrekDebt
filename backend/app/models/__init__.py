@@ -1,3 +1,3 @@
-from app.models.models import Expense, Member, Trip
+from app.models.models import Expense, ExpenseSplit, Member, Trip
 
-__all__ = ["Trip", "Member", "Expense"]
+__all__ = ["Trip", "Member", "Expense", "ExpenseSplit"]

@@ -8,6 +8,9 @@ export const CATEGORIES = [
 
 export type ExpenseCategory = (typeof CATEGORIES)[number]
 
+export const CURRENCIES = ['INR', 'USD', 'EUR'] as const
+export type TripCurrency = (typeof CURRENCIES)[number]
+
 export interface Member {
   id: string
   name: string
@@ -18,6 +21,7 @@ export interface Trip {
   id: string
   public_id: string
   name: string
+  currency: TripCurrency | string
   created_at: string
   members: Member[]
   share_url_path: string
@@ -29,6 +33,8 @@ export interface Expense {
   amount: string
   paid_by_id: string
   paid_by_name: string
+  split_member_ids: string[]
+  split_member_names: string[]
   category: string
   expense_date: string
   notes: string | null
@@ -65,6 +71,7 @@ export interface BalanceSummary {
 export interface TripCreatePayload {
   name: string
   members: string[]
+  currency?: TripCurrency
 }
 
 export interface ExpensePayload {
@@ -72,6 +79,7 @@ export interface ExpensePayload {
   amount: number
   paid_by_id?: string
   paid_by_ids?: string[]
+  split_member_ids?: string[]
   category: ExpenseCategory
   expense_date: string
   notes?: string | null

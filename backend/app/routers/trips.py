@@ -14,6 +14,7 @@ from app.schemas.schemas import (
     TripCreate,
     TripJoin,
     TripResponse,
+    TripUpdate,
 )
 from app.services import trip_service
 
@@ -28,6 +29,13 @@ def create_trip(payload: TripCreate, db: Session = Depends(get_db)) -> TripRespo
 @router.get("/{public_id}", response_model=TripResponse)
 def get_trip(public_id: str, db: Session = Depends(get_db)) -> TripResponse:
     return trip_service.get_trip(db, public_id)
+
+
+@router.patch("/{public_id}", response_model=TripResponse)
+def update_trip(
+    public_id: str, payload: TripUpdate, db: Session = Depends(get_db)
+) -> TripResponse:
+    return trip_service.update_trip(db, public_id, payload)
 
 
 @router.post("/{public_id}/join", response_model=MemberResponse)

@@ -14,6 +14,12 @@ class ExpenseCategory(str, Enum):
     MISC = "Misc"
 
 
+class TripCurrency(str, Enum):
+    INR = "INR"
+    USD = "USD"
+    EUR = "EUR"
+
+
 # --- Members ---
 
 
@@ -43,6 +49,7 @@ class MemberResponse(BaseModel):
 class TripCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=200)
     members: list[str] = Field(..., min_length=1, max_length=50)
+    currency: TripCurrency = TripCurrency.INR
 
     @field_validator("name")
     @classmethod
@@ -83,10 +90,32 @@ class TripJoin(BaseModel):
         return cleaned
 
 
+class TripUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    currency: TripCurrency | None = None
+
+    @field_validator("name")
+    @classmethod
+    def strip_trip_name(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("Trip name cannot be empty")
+        return cleaned
+
+    @model_validator(mode="after")
+    def require_at_least_one_field(self) -> "TripUpdate":
+        if self.name is None and self.currency is None:
+            raise ValueError("Provide a name and/or currency to update")
+        return self
+
+
 class TripResponse(BaseModel):
     id: UUID
     public_id: str
     name: str
+    currency: str
     created_at: datetime
     members: list[MemberResponse]
     share_url_path: str
@@ -110,6 +139,7 @@ class ExpenseCreate(BaseModel):
     amount: Decimal = Field(..., gt=0, max_digits=12, decimal_places=2)
     paid_by_id: UUID | None = None
     paid_by_ids: list[UUID] | None = None
+    split_member_ids: list[UUID] | None = None
     category: ExpenseCategory = ExpenseCategory.MISC
     expense_date: date
     notes: str | None = Field(default=None, max_length=1000)
@@ -153,6 +183,7 @@ class ExpenseUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     amount: Decimal | None = Field(default=None, gt=0, max_digits=12, decimal_places=2)
     paid_by_id: UUID | None = None
+    split_member_ids: list[UUID] | None = None
     category: ExpenseCategory | None = None
     expense_date: date | None = None
     notes: str | None = Field(default=None, max_length=1000)
@@ -167,6 +198,14 @@ class ExpenseUpdate(BaseModel):
             raise ValueError("Expense name cannot be empty")
         return cleaned
 
+    @field_validator("notes")
+    @classmethod
+    def strip_notes(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        cleaned = value.strip()
+        return cleaned or None
+
 
 class ExpenseResponse(BaseModel):
     id: UUID
@@ -174,6 +213,8 @@ class ExpenseResponse(BaseModel):
     amount: Decimal
     paid_by_id: UUID
     paid_by_name: str
+    split_member_ids: list[UUID]
+    split_member_names: list[str]
     category: str
     expense_date: date
     notes: str | None

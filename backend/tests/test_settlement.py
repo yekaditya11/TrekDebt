@@ -1,7 +1,12 @@
 from decimal import Decimal
 from uuid import uuid4
 
-from app.services.settlement import compute_balances, minimize_settlements
+from app.services.settlement import (
+    allocate_equal,
+    compute_balances,
+    compute_balances_from_shares,
+    minimize_settlements,
+)
 
 
 def test_example_settlement():
@@ -28,3 +33,19 @@ def test_example_settlement():
     total_paid_out = sum(s.amount for s in settlements)
     assert total_paid_out == Decimal("2000.00")
     assert all(s.to_member_name == "Dev" for s in settlements)
+
+
+def test_unequal_split_shares():
+    """Expense shared by 2 of 3 members."""
+    a, b, c = uuid4(), uuid4(), uuid4()
+    members = [(a, "Ada"), (b, "Bob"), (c, "Cara")]
+    payments = {a: Decimal("1000.00"), b: Decimal("0.00"), c: Decimal("0.00")}
+    parts = allocate_equal(Decimal("1000.00"), [a, b])
+    shares = {a: parts[a], b: parts[b], c: Decimal("0.00")}
+    _, balances = compute_balances_from_shares(members, payments, shares, Decimal("1000.00"))
+    by_name = {row.member_name: row for row in balances}
+    assert by_name["Ada"].share == Decimal("500.00")
+    assert by_name["Bob"].share == Decimal("500.00")
+    assert by_name["Cara"].share == Decimal("0.00")
+    assert by_name["Ada"].net_balance == Decimal("500.00")
+    assert by_name["Bob"].net_balance == Decimal("-500.00")

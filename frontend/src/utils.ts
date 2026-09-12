@@ -1,11 +1,29 @@
-export function formatCurrency(value: string | number): string {
+export function formatCurrency(
+  value: string | number,
+  currency: string = 'INR',
+): string {
   const amount = typeof value === 'string' ? Number(value) : value
-  if (Number.isNaN(amount)) return '₹0'
-  return new Intl.NumberFormat('en-IN', {
+  const code = CURRENCY_CODES.has(currency) ? currency : 'INR'
+  if (Number.isNaN(amount)) {
+    return new Intl.NumberFormat(localeFor(code), {
+      style: 'currency',
+      currency: code,
+      maximumFractionDigits: 2,
+    }).format(0)
+  }
+  return new Intl.NumberFormat(localeFor(code), {
     style: 'currency',
-    currency: 'INR',
+    currency: code,
     maximumFractionDigits: 2,
   }).format(amount)
+}
+
+const CURRENCY_CODES = new Set(['INR', 'USD', 'EUR'])
+
+function localeFor(currency: string): string {
+  if (currency === 'USD') return 'en-US'
+  if (currency === 'EUR') return 'en-IE'
+  return 'en-IN'
 }
 
 export function formatDate(isoDate: string): string {

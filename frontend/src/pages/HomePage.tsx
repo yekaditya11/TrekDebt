@@ -3,14 +3,16 @@ import { useNavigate } from 'react-router-dom'
 import { api, ApiError } from '../api/client'
 import { AppHeader } from '../components/AppHeader'
 import { Button } from '../components/Button'
-import { TextInput } from '../components/FormFields'
+import { DropdownSelect, TextInput } from '../components/FormFields'
 import { RecentTrips } from '../components/RecentTrips'
 import { ErrorBanner } from '../components/States'
+import { CURRENCIES, type TripCurrency } from '../types'
 import { rememberTrip } from '../utils'
 
 export function HomePage() {
   const navigate = useNavigate()
   const [tripName, setTripName] = useState('')
+  const [currency, setCurrency] = useState<TripCurrency>('INR')
   const [memberInput, setMemberInput] = useState('')
   const [members, setMembers] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -42,6 +44,7 @@ export function HomePage() {
       const trip = await api.createTrip({
         name: tripName.trim(),
         members,
+        currency,
       })
       rememberTrip(trip.public_id, trip.name)
       navigate(`/trip/${trip.public_id}`)
@@ -55,8 +58,8 @@ export function HomePage() {
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-xl flex-col px-4 pb-10 pt-8 sm:px-6">
       <AppHeader
-        title="Split trip expenses"
-        subtitle="Create a trip, share one link with friends, and split costs equally."
+        title="Trip expenses"
+        subtitle="Create a trip, share the link, and track who paid for what."
       />
 
       <form
@@ -71,6 +74,16 @@ export function HomePage() {
           onChange={(e) => setTripName(e.target.value)}
           required
         />
+
+        <div className="mt-4">
+          <DropdownSelect
+            id="trip-currency"
+            label="Currency"
+            value={currency}
+            options={CURRENCIES.map((code) => ({ value: code, label: code }))}
+            onChange={(next) => setCurrency(next as TripCurrency)}
+          />
+        </div>
 
         <div className="mt-4 space-y-2">
           <label className="text-sm font-medium text-stone-ink" htmlFor="member-name">

@@ -4,28 +4,23 @@ from uuid import UUID
 from app.schemas.schemas import MemberBalance, SettlementTransaction
 
 
-def compute_balances(
+def compute_balances_from_shares(
     members: list[tuple[UUID, str]],
     payments: dict[UUID, Decimal],
+    shares: dict[UUID, Decimal],
     total_expense: Decimal,
 ) -> tuple[Decimal, list[MemberBalance]]:
-    """Equal-split balances: share = total / n, net = paid - share."""
+    """Balances using per-member share totals (supports unequal / partial splits)."""
     member_count = len(members)
     if member_count == 0:
         return Decimal("0.00"), []
 
-    per_person = (total_expense / member_count).quantize(Decimal("0.01"))
+    avg = (total_expense / member_count).quantize(Decimal("0.01")) if member_count else Decimal("0.00")
     balances: list[MemberBalance] = []
 
-    # Distribute rounding remainder so shares sum exactly to total
-    allocated = per_person * member_count
-    remainder = total_expense - allocated
-
-    for index, (member_id, member_name) in enumerate(members):
-        share = per_person
-        if index == 0:
-            share = (share + remainder).quantize(Decimal("0.01"))
+    for member_id, member_name in members:
         paid = payments.get(member_id, Decimal("0.00")).quantize(Decimal("0.01"))
+        share = shares.get(member_id, Decimal("0.00")).quantize(Decimal("0.01"))
         net = (paid - share).quantize(Decimal("0.01"))
         balances.append(
             MemberBalance(
@@ -37,7 +32,42 @@ def compute_balances(
             )
         )
 
-    return per_person, balances
+    return avg, balances
+
+
+def compute_balances(
+    members: list[tuple[UUID, str]],
+    payments: dict[UUID, Decimal],
+    total_expense: Decimal,
+) -> tuple[Decimal, list[MemberBalance]]:
+    """Equal-split balances: share = total / n, net = paid - share."""
+    member_count = len(members)
+    if member_count == 0:
+        return Decimal("0.00"), []
+
+    per_person = (total_expense / member_count).quantize(Decimal("0.01"))
+    allocated = per_person * member_count
+    remainder = total_expense - allocated
+    shares: dict[UUID, Decimal] = {}
+
+    for index, (member_id, _) in enumerate(members):
+        share = per_person
+        if index == 0:
+            share = (share + remainder).quantize(Decimal("0.01"))
+        shares[member_id] = share
+
+    return compute_balances_from_shares(members, payments, shares, total_expense)
+
+
+def allocate_equal(amount: Decimal, member_ids: list[UUID]) -> dict[UUID, Decimal]:
+    """Split amount equally across member_ids; first gets rounding remainder."""
+    if not member_ids:
+        return {}
+    count = len(member_ids)
+    base = (amount / count).quantize(Decimal("0.01"))
+    parts = [base] * count
+    parts[0] = (amount - base * (count - 1)).quantize(Decimal("0.01"))
+    return {mid: part for mid, part in zip(member_ids, parts)}
 
 
 def minimize_settlements(balances: list[MemberBalance]) -> list[SettlementTransaction]:
